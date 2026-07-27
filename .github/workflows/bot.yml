@@ -1,0 +1,45 @@
+name: trading-bot
+
+on:
+  schedule:
+    - cron: "3-58/5 * * * *"   # every 5 minutes (best-effort; may run 5-15 min apart)
+  workflow_dispatch:          # manual "Run workflow" button
+
+permissions:
+  contents: write
+
+concurrency:
+  group: trading-bot
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run bot
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: python bot/run.py
+
+      - name: Commit state
+        run: |
+          git config user.name "autobot"
+          git config user.email "autobot@users.noreply.github.com"
+          git add state.json docs/data.json
+          if git diff --cached --quiet; then
+            echo "No changes to commit."
+          else
+            git commit -m "bot: state update $(date -u +'%Y-%m-%d %H:%M UTC')"
+            git pull --rebase origin ${GITHUB_REF_NAME} || true
+            git push
+          fi
