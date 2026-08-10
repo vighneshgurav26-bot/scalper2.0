@@ -109,7 +109,7 @@ def main():
     # ---- self-review when due (trade count OR time limit) ----
     stale_h = STALE_REVIEW_H.get(st["tf"], 48)
     hours_since = (now_ms() - st.get("last_review_t", 0)) / 3600_000
-    if st["trades_since_review"] >= REVIEW_EVERY or hours_since > stale_h:
+    if False:  # FROZEN: reviews disabled, strategy never mutates
         brain.review(st, idle_hours=round(hours_since))
         if st["strategy"]["timeframe"] != st["tf"]:
             st["tf"] = st["strategy"]["timeframe"]
