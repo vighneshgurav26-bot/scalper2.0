@@ -190,36 +190,27 @@ def run_tournament(st, raw_candidates, base_version):
 
 
 def bootstrap(st):
-    prompt = (
-        f"You are the autonomous strategy brain of a ${START_BAL:.0f} "
-        f"paper-trading account executed by a cron job every ~5-15 minutes "
-        f"(signals on closed candles only). Propose 2-3 GENUINELY DIFFERENT "
-        f"candidate strategies (different logic, not parameter tweaks) - "
-        f"they will be backtested on recent data and the best one deployed. "
-        f"Each candidate chooses its own timeframe, markets (max 4) and all "
-        f"risk parameters. {MARKET_NOTES} Be selective and conservative on "
-        f"a small account. Current snapshot (15m candles): {_snapshot(st)}. "
-        f'Respond ONLY with raw JSON, no markdown: '
-        f'{{"candidates":[<schema>,...]}}\nSchema:\n{SCHEMA_TEXT}'
-    )
-    try:
-        out = ask_claude(prompt)
-        winner, results = run_tournament(st, out.get("candidates"), 1)
-        if winner is None:
-            raise ValueError("no valid candidates")
-        st["strategy"] = winner
-        summary = " | ".join(
-            f'{e["name"]} ({e["tf"]}) net ${e["net"]} in {e["trades"]} trades'
-            + (" <- DEPLOYED" if e["winner"] else "") for e in results)
-        st["history"] = [{"version": 1, "t": now_ms(),
-                          "analysis": winner["rationale"],
-                          "changes": [f"Tournament of {len(results)}: {summary}"],
-                          "tournament": results,
-                          "strategy": winner}]
-        st["last_review_t"] = now_ms()
-        log(st, f'Tournament done -> v1 "{winner["name"]}" deployed '
-                f'({winner["timeframe"]}, {", ".join(winner["markets"])})', "ai")
-    except Exception as e:
+    # FROZEN MODE: run a fixed v12-approx strategy, no tournament.
+    strat = sanitize({
+        "name": "v12_approx_BTC_Breakout_5m (FROZEN)",
+        "timeframe": "5m",
+        "markets": ["BTC"],
+        "rationale": "Reconstruction of v12: 5m BTC breakout, TP0.55/SL0.22, trail0.15. Frozen full-sample test - NOT expected profitable (v12 self-reported PF 0.69).",
+        "longConditions": [{"indicator": "breakout", "period": 15, "direction": "high"}],
+        "shortConditions": [{"indicator": "breakout", "period": 15, "direction": "low"}],
+        "risk": {"riskPerTradePct": 0.3, "stopLossPct": 0.22, "takeProfitPct": 0.55,
+                 "trailingStopPct": 0.15, "maxHoldMinutes": 60, "maxOpenPositions": 1,
+                 "maxDailyLossPct": 15, "cooldownMinutes": 35},
+    }, 1)
+    st["strategy"] = strat
+    st["tf"] = strat["timeframe"]
+    st["history"] = [{"version": 1, "t": now_ms(),
+                      "analysis": strat["rationale"],
+                      "changes": ["FROZEN v12-approx"],
+                      "strategy": strat}]
+    st["last_review_t"] = now_ms()
+    log(st, f'FROZEN strategy online: "{strat["name"]}"', "ai")
+except Exception as e:
         st["strategy"] = FALLBACK
         st["history"] = [{"version": 1, "t": now_ms(),
                           "analysis": FALLBACK["rationale"],
