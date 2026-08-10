@@ -210,15 +210,6 @@ def bootstrap(st):
                       "strategy": strat}]
     st["last_review_t"] = now_ms()
     log(st, f'FROZEN strategy online: "{strat["name"]}"', "ai")
-except Exception as e:
-        st["strategy"] = FALLBACK
-        st["history"] = [{"version": 1, "t": now_ms(),
-                          "analysis": FALLBACK["rationale"],
-                          "changes": [f"Fallback strategy (API/tournament failed: {type(e).__name__})"],
-                          "strategy": FALLBACK}]
-        st["last_review_t"] = now_ms()
-        log(st, "Strategy API unavailable - running built-in fallback.", "warn")
-
 
 def review(st, idle_hours=None):
     if not st["strategy"]:
